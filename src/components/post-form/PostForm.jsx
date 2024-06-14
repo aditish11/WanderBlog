@@ -1,35 +1,35 @@
-import React from "react";
-import { useCallback ,useEffect} from "react";
+import React, { useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { Button, Input, Select, RTE } from "./index";
-import service from "../appwrite/config";
+import { Button, Input, RTE, Select } from "..";
+import appwriteService from "../../appwrite/config";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-function PostForm({post}) {
+export default function PostForm({ post }) {
   const { register, handleSubmit, watch, setValue, control, getValues } =
     useForm({
       defaultValues: {
         title: post?.title || "",
-        slug: post?.slug || "",
+        slug: post?.$id || "",
         content: post?.content || "",
-        status: post?.slug || "active",
+        status: post?.status || "active",
       },
     });
 
   const navigate = useNavigate();
-  const userData = useSelector((state) => state.user.userData);
-
+  const userData = useSelector((state) => state.auth.userData);
+  
   const submit = async (data) => {
-
     if (post) {
-      data.image[0] ? service.uploadFile(data.image[0]) : null;
+      const file = data.image[0]
+        ? await appwriteService.uploadFile(data.image[0])
+        : null;
 
       if (file) {
-        service.deleteFile(post.featuredImage);
+        appwriteService.deleteFile(post.featuredImage);
       }
 
-      const dbPost = await service.updatePost(posts.$id, {
+      const dbPost = await appwriteService.updatePost(post.$id, {
         ...data,
         featuredImage: file ? file.$id : undefined,
       });
@@ -38,14 +38,15 @@ function PostForm({post}) {
         navigate(`/post/${dbPost.$id}`);
       }
     } else {
-      const file = await service.uploadFile(data.image[0]);
-
+      const file = await appwriteService.uploadFile(data.image[0]);
+      
       if (file) {
-        const fileId = file.$id; 
+        const fileId = file.$id;
         data.featuredImage = fileId;
-        const dbPost = await service.createPost({
+       
+        const dbPost = await appwriteService.createPost({
           ...data,
-          userId: userData.$id,
+          userID: userData.$id,
         });
 
         if (dbPost) {
@@ -55,28 +56,26 @@ function PostForm({post}) {
     }
   };
 
-  const slugTransform = useCallback((value)=>{
-    if(value && typeof value==="string"){
+  const slugTransform = useCallback((value) => {
+    if (value && typeof value === "string")
       return value
         .trim()
         .toLowerCase()
         .replace(/[^a-zA-Z\d\s]+/g, "-")
         .replace(/\s/g, "-");
-    }
-    return ''
-  },[]);
 
-  useEffect(() => {
-    const subscription=watch((value,{name})=>{
-      if(name==="title"){
-        setValue('slug',slugTransform(value.title))
+    return "";
+  }, []);
+
+  React.useEffect(() => {
+    const subscription = watch((value, { name }) => {
+      if (name === "title") {
+        setValue("slug", slugTransform(value.title), { shouldValidate: true });
       }
-    })
-    return ()=>{
-      subscription.unsubscribe()
-    }
-  }, [watch,slugTransform,setValue])
-  
+    });
+
+    return () => subscription.unsubscribe();
+  }, [watch, slugTransform, setValue]);
 
   return (
     <form onSubmit={handleSubmit(submit)} className="flex flex-wrap">
@@ -139,5 +138,3 @@ function PostForm({post}) {
     </form>
   );
 }
-
-export default PostForm;
